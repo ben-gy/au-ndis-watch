@@ -1,0 +1,10 @@
+{
+  "fetched_at": "2026-06-22T12:29:56.208Z",
+  "dataset_name": "ndis-commission-compliance-actions (embedded snapshot)",
+  "dataset_title": "NDIS Commission Compliance Actions",
+  "dataset_modified": "2026-06-08",
+  "csv_url": "https://data.gov.au/data/dataset/ndis-commission-provider-register-part-2",
+  "csv_bytes": 3182259,
+  "aggregated_at": "2026-06-22T12:29:56.209Z",
+  "action_count": 3203
+}

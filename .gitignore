@@ -1,0 +1,13 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+coverage
+.vscode
+.idea
+.env
+.env.local
+.claude/
+source.csv
+pipeline/raw/
