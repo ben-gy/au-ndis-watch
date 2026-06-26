@@ -1,10 +1,10 @@
 {
-  "fetched_at": "2026-06-22T12:29:56.208Z",
-  "dataset_name": "ndis-commission-compliance-actions (embedded snapshot)",
-  "dataset_title": "NDIS Commission Compliance Actions",
-  "dataset_modified": "2026-06-08",
-  "csv_url": "https://data.gov.au/data/dataset/ndis-commission-provider-register-part-2",
-  "csv_bytes": 3182259,
-  "aggregated_at": "2026-06-22T12:29:56.209Z",
+  "fetched_at": "2026-06-26T02:20:46.811Z",
+  "dataset_name": "ndis-commission-compliance-actions-04-06-2026",
+  "dataset_title": "NDIS Commission Compliance Actions - 04.06.2026",
+  "dataset_modified": "2026-06-04T00:01:13.206428",
+  "csv_url": "https://data.gov.au/data/dataset/5087fd94-96e4-44a6-af20-e6c8177a4bca/resource/7478346e-1fd9-4e9c-9487-b8e64ec608dd/download/ndis-commission-compliance-actions-04.06.2026.csv",
+  "csv_bytes": 3186139,
+  "aggregated_at": "2026-06-26T02:20:47.544Z",
   "action_count": 3203
 }
