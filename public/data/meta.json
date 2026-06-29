@@ -1,10 +1,10 @@
 {
-  "fetched_at": "2026-06-26T02:20:46.811Z",
+  "fetched_at": "2026-06-29T19:07:38.264Z",
   "dataset_name": "ndis-commission-compliance-actions-04-06-2026",
   "dataset_title": "NDIS Commission Compliance Actions - 04.06.2026",
   "dataset_modified": "2026-06-04T00:01:13.206428",
   "csv_url": "https://data.gov.au/data/dataset/5087fd94-96e4-44a6-af20-e6c8177a4bca/resource/7478346e-1fd9-4e9c-9487-b8e64ec608dd/download/ndis-commission-compliance-actions-04.06.2026.csv",
   "csv_bytes": 3186139,
-  "aggregated_at": "2026-06-26T02:20:47.544Z",
+  "aggregated_at": "2026-06-29T19:07:38.861Z",
   "action_count": 3203
 }
