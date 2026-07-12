@@ -47,21 +47,21 @@ export function renderStates(ctx: StatesContext, container: HTMLElement): void {
               <div class="metric">
                 <div class="metric-label">Total actions</div>
                 <div class="metric-value mono">${fmtInt(s.count)}</div>
-                <div class="bar">
+                <div class="bar" data-tip="${escapeHtml(`${STATE_LABELS[s.state] ?? s.state}: ${fmtInt(s.count)} actions`)}">
                   <span style="width:${(s.count / maxCount) * 100}%; background:${SEVERITY_COLORS.red}"></span>
                 </div>
               </div>
               <div class="metric">
                 <div class="metric-label">Per 100k population</div>
                 <div class="metric-value mono">${fmtNum(s.per_100k, 2)}</div>
-                <div class="bar">
+                <div class="bar" data-tip="${escapeHtml(`${STATE_LABELS[s.state] ?? s.state}: ${fmtNum(s.per_100k, 2)} per 100k (national ${fmtNum(nationalRate, 2)})`)}">
                   <span style="width:${(s.per_100k / maxPer) * 100}%; background:${SEVERITY_COLORS.amber}"></span>
                 </div>
                 <div class="muted xs">vs national ${fmtNum(nationalRate, 2)} (${aboveAvg >= 0 ? '+' : ''}${fmtNum(aboveAvg, 2)})</div>
               </div>
               <div class="metric">
                 <div class="metric-label">Severity mix</div>
-                <div class="sev-bar tall" title="Red ${s.severity_mix.red ?? 0} · Amber ${s.severity_mix.amber ?? 0} · Slate ${s.severity_mix.slate ?? 0}">
+                <div class="sev-bar tall" data-tip="Red ${s.severity_mix.red ?? 0} · Amber ${s.severity_mix.amber ?? 0} · Slate ${s.severity_mix.slate ?? 0}" aria-label="Red ${s.severity_mix.red ?? 0} · Amber ${s.severity_mix.amber ?? 0} · Slate ${s.severity_mix.slate ?? 0}">
                   <span style="width:${wRed}%; background:${SEVERITY_COLORS.red}"></span>
                   <span style="width:${wAmb}%; background:${SEVERITY_COLORS.amber}"></span>
                   <span style="width:${wSla}%; background:${SEVERITY_COLORS.slate}"></span>

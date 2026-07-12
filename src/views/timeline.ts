@@ -67,7 +67,7 @@ export function renderTimeline(ctx: TimelineContext, container: HTMLElement): vo
     const p = timeline[i];
     let stackOffset = 0;
     const x = padLeft + i * (barWidth + barGap);
-    let tooltipLines = `<strong>${fmtMonth(p.month)}</strong><br/>Total ${fmtInt(totals[i])}`;
+    let tooltipLines = `${fmtMonth(p.month)} — Total ${fmtInt(totals[i])}`;
     for (const t of allTypes) {
       const v = p.counts[t] ?? 0;
       if (v === 0) continue;
@@ -79,13 +79,13 @@ export function renderTimeline(ctx: TimelineContext, container: HTMLElement): vo
               width="${barWidth.toFixed(2)}" height="${segH.toFixed(2)}"
               fill="${TYPE_COLORS[t] ?? '#475569'}" />`,
       );
-      tooltipLines += `<br/>${t.replace(/_/g, ' ')}: ${v}`;
+      tooltipLines += `\n${t.replace(/_/g, ' ')}: ${v}`;
       stackOffset += v;
     }
     bars.push(
       `<rect class="bar-hover" x="${x.toFixed(2)}" y="${padTop}"
             width="${barWidth.toFixed(2)}" height="${chartH}"
-            data-tooltip="${escapeHtml(tooltipLines)}" data-month="${p.month}" />`,
+            data-tip="${escapeHtml(tooltipLines)}" aria-label="${escapeHtml(tooltipLines)}" data-month="${p.month}" />`,
     );
   }
 
@@ -115,7 +115,6 @@ export function renderTimeline(ctx: TimelineContext, container: HTMLElement): vo
         ${bars.join('')}
         ${xLabels.join('')}
       </svg>
-      <div class="chart-tooltip" id="tl-tip" hidden></div>
     </div>
     <div class="chart-summary">
       <div class="stat">
@@ -132,27 +131,4 @@ export function renderTimeline(ctx: TimelineContext, container: HTMLElement): vo
       </div>
     </div>
   </section>`;
-
-  const tip = container.querySelector<HTMLDivElement>('#tl-tip');
-  const chart = container.querySelector<HTMLElement>('.chart-wrap');
-  container.querySelectorAll<SVGElement>('rect.bar-hover').forEach((rect) => {
-    rect.addEventListener('mouseenter', (e) => {
-      if (!tip || !chart) return;
-      const html = rect.getAttribute('data-tooltip') ?? '';
-      tip.innerHTML = html;
-      tip.hidden = false;
-      const r = chart.getBoundingClientRect();
-      tip.style.left = `${(e as MouseEvent).clientX - r.left + 12}px`;
-      tip.style.top = `${(e as MouseEvent).clientY - r.top + 12}px`;
-    });
-    rect.addEventListener('mousemove', (e) => {
-      if (!tip || !chart) return;
-      const r = chart.getBoundingClientRect();
-      tip.style.left = `${(e as MouseEvent).clientX - r.left + 12}px`;
-      tip.style.top = `${(e as MouseEvent).clientY - r.top + 12}px`;
-    });
-    rect.addEventListener('mouseleave', () => {
-      if (tip) tip.hidden = true;
-    });
-  });
 }

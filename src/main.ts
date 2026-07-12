@@ -12,6 +12,7 @@ import { renderGroups } from './views/groups';
 import { renderHeader, renderFooter } from './components/shell';
 import { renderDrilldown } from './components/drilldown';
 import { installGlossaryTooltips } from './glossary-tooltip';
+import { initTooltip } from './tooltip';
 import { createInitialState, parseHash, writeHash } from './state';
 import type { AppState, ComplianceAction, DataMeta, Stats, ViewKey } from './types';
 
@@ -46,6 +47,7 @@ mainEl.innerHTML = `
 `;
 
 installGlossaryTooltips(document.body);
+initTooltip();
 
 async function bootstrap() {
   let actions: ComplianceAction[];

@@ -39,12 +39,12 @@ export function renderTypes(ctx: TypesContext, container: HTMLElement): void {
     const yi1 = cy - inner * Math.cos(start);
     const xi2 = cx + inner * Math.sin(end);
     const yi2 = cy - inner * Math.cos(end);
+    const sliceTip = `${seg.type.replace(/_/g, ' ')}: ${fmtInt(seg.count)} (${((seg.count / total) * 100).toFixed(1)}%)`;
     slices.push(
       `<path d="M ${x1.toFixed(2)} ${y1.toFixed(2)} A ${r} ${r} 0 ${largeArc} 1 ${x2.toFixed(2)} ${y2.toFixed(2)} L ${xi2.toFixed(2)} ${yi2.toFixed(2)} A ${inner} ${inner} 0 ${largeArc} 0 ${xi1.toFixed(2)} ${yi1.toFixed(2)} Z"
             fill="${TYPE_COLORS[seg.type] ?? '#475569'}"
-            data-type="${seg.type}" class="donut-slice">
-        <title>${escapeHtml(seg.type.replace(/_/g, ' '))}: ${fmtInt(seg.count)} (${((seg.count / total) * 100).toFixed(1)}%)</title>
-      </path>`,
+            data-type="${seg.type}" class="donut-slice"
+            data-tip="${escapeHtml(sliceTip)}" aria-label="${escapeHtml(sliceTip)}" />`,
     );
   }
 
@@ -65,7 +65,9 @@ export function renderTypes(ctx: TypesContext, container: HTMLElement): void {
         .map((t) => {
           const v = ctx.stats.group_by_type[cat.category]?.[t] ?? 0;
           const opacity = matrixMax > 0 ? v / matrixMax : 0;
+          const cellTip = `${cat.category.replace(/_/g, ' ')} × ${t.replace(/_/g, ' ')}: ${fmtInt(v)}`;
           return `<td class="matrix-cell" data-cat="${cat.category}" data-type="${t}"
+            data-tip="${escapeHtml(cellTip)}"
             style="background:${TYPE_COLORS[t] ?? '#475569'}; --matrix-opacity:${opacity.toFixed(3)}">
             <span class="matrix-cell-num">${v === 0 ? '' : fmtInt(v)}</span>
           </td>`;

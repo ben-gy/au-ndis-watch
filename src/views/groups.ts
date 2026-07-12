@@ -83,19 +83,21 @@ export function renderGroups(ctx: GroupsContext, container: HTMLElement): void {
     const color = CATEGORY_COLORS[l.src] ?? '#475569';
     const opacity = 0.18 + (l.value / maxLink) * 0.32;
     const widthStroke = Math.max(1.5, Math.min(srcH, dstH));
+    const linkTip = `${CATEGORY_LABELS[l.src] ?? l.src} → ${l.dst.replace(/_/g, ' ')}: ${fmtInt(l.value)}`;
     flowPaths.push(
       `<path d="${path}" stroke="${color}" stroke-opacity="${opacity}"
             stroke-width="${widthStroke.toFixed(2)}" fill="none"
-            data-cat="${escapeHtml(l.src)}" data-type="${l.dst}" class="flow-link">
-        <title>${escapeHtml(CATEGORY_LABELS[l.src] ?? l.src)} → ${escapeHtml(l.dst.replace(/_/g, ' '))}: ${fmtInt(l.value)}</title>
-      </path>`,
+            data-cat="${escapeHtml(l.src)}" data-type="${l.dst}" class="flow-link"
+            data-tip="${escapeHtml(linkTip)}" aria-label="${escapeHtml(linkTip)}" />`,
     );
   }
 
   const srcNodes = cats
     .map(
       (c) => `
-    <g class="flow-node" data-cat="${escapeHtml(c.category)}">
+    <g class="flow-node" data-cat="${escapeHtml(c.category)}"
+       data-tip="${escapeHtml(`${CATEGORY_LABELS[c.category] ?? c.category}: ${fmtInt(c.count)} actions`)}"
+       aria-label="${escapeHtml(`${CATEGORY_LABELS[c.category] ?? c.category}: ${fmtInt(c.count)} actions`)}">
       <rect x="${leftX}" y="${srcPositions[c.category].y}" width="${colW}" height="${Math.max(2, srcPositions[c.category].h).toFixed(2)}"
             fill="${CATEGORY_COLORS[c.category] ?? '#475569'}" rx="2" />
       <text x="${leftX - 8}" y="${srcPositions[c.category].y + Math.min(14, srcPositions[c.category].h / 2 + 4)}"
@@ -109,7 +111,9 @@ export function renderGroups(ctx: GroupsContext, container: HTMLElement): void {
   const dstNodes = allTypes
     .map(
       (t) => `
-    <g class="flow-node" data-type="${t}">
+    <g class="flow-node" data-type="${t}"
+       data-tip="${escapeHtml(`${t.replace(/_/g, ' ')}: ${fmtInt(ctx.stats.by_type[t] ?? 0)} actions`)}"
+       aria-label="${escapeHtml(`${t.replace(/_/g, ' ')}: ${fmtInt(ctx.stats.by_type[t] ?? 0)} actions`)}">
       <rect x="${rightX - colW}" y="${dstPositions[t].y}" width="${colW}" height="${Math.max(2, dstPositions[t].h).toFixed(2)}"
             fill="${TYPE_COLORS[t] ?? '#475569'}" rx="2" />
       <text x="${rightX + 8}" y="${dstPositions[t].y + Math.min(14, dstPositions[t].h / 2 + 4)}"
@@ -140,7 +144,8 @@ export function renderGroups(ctx: GroupsContext, container: HTMLElement): void {
         <tbody>
           ${cats
             .map(
-              (c) => `<tr data-cat="${escapeHtml(c.category)}">
+              (c) => `<tr data-cat="${escapeHtml(c.category)}"
+                data-tip="${escapeHtml(`${CATEGORY_LABELS[c.category] ?? c.category}: ${fmtInt(c.count)} actions — click to filter Browse`)}">
               <td><span class="legend-dot" style="background:${CATEGORY_COLORS[c.category] ?? '#475569'}"></span>
                   ${escapeHtml(CATEGORY_LABELS[c.category] ?? c.category)}</td>
               <td class="num mono">${fmtInt(c.count)}</td></tr>`,

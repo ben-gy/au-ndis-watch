@@ -39,7 +39,7 @@ export function renderHeader(ctx: ShellContext, root: HTMLElement): void {
           ).join('')}
         </nav>
         <div class="header-meta">
-          <span class="count-pill" title="Total actions loaded">${fmtInt(ctx.stats.total_actions)} actions</span>
+          <span class="count-pill" data-tip="Total actions loaded" aria-label="Total actions loaded">${fmtInt(ctx.stats.total_actions)} actions</span>
           <button class="btn-icon" data-action="about" aria-label="About this site">?</button>
         </div>
       </div>

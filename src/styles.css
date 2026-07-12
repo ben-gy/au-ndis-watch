@@ -777,19 +777,6 @@ a:hover {
 .bar-hover:hover {
   fill: rgba(11, 37, 69, 0.05);
 }
-.chart-tooltip {
-  position: absolute;
-  pointer-events: none;
-  background: var(--accent-navy);
-  color: white;
-  padding: 8px 12px;
-  border-radius: var(--radius-sm);
-  font-size: var(--font-size-sm);
-  line-height: 1.4;
-  box-shadow: var(--shadow-md);
-  z-index: 10;
-  white-space: nowrap;
-}
 .chart-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1401,6 +1388,27 @@ body.modal-open {
 }
 .glossary-tooltip-body {
   color: rgba(255, 255, 255, 0.85);
+}
+
+/* Global [data-tip] hover tooltip (see src/tooltip.ts) */
+.hover-tip {
+  position: fixed;
+  z-index: 10000; /* above Leaflet panes and controls */
+  max-width: 300px;
+  background: var(--accent-navy);
+  color: var(--text-inverse);
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+  white-space: pre-line;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 100ms;
+}
+.hover-tip.visible {
+  opacity: 1;
 }
 
 /* Leaflet adjustments */

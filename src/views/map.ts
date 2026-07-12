@@ -54,7 +54,7 @@ export function renderMap(ctx: MapContext, container: HTMLElement): void {
                 <td class="num mono">${fmtInt(s.count)}</td>
                 <td class="num mono">${fmtNum(s.per_100k, 2)}</td>
                 <td>
-                  <div class="sev-bar" title="Red ${s.severity_mix.red ?? 0} · Amber ${s.severity_mix.amber ?? 0} · Slate ${s.severity_mix.slate ?? 0}">
+                  <div class="sev-bar" data-tip="Red ${s.severity_mix.red ?? 0} · Amber ${s.severity_mix.amber ?? 0} · Slate ${s.severity_mix.slate ?? 0}" aria-label="Red ${s.severity_mix.red ?? 0} · Amber ${s.severity_mix.amber ?? 0} · Slate ${s.severity_mix.slate ?? 0}">
                     <span style="width:${widthRed}%;background:${SEVERITY_COLORS.red}"></span>
                     <span style="width:${widthAmber}%;background:${SEVERITY_COLORS.amber}"></span>
                     <span style="width:${widthSlate}%;background:${SEVERITY_COLORS.slate}"></span>
