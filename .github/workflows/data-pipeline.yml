@@ -2,7 +2,7 @@ name: Data Pipeline
 
 on:
   schedule:
-    - cron: '23 18 * * 1'
+    - cron: '23 18 9 1,4,7,10 *'
   workflow_dispatch:
   push:
     branches: [main]
