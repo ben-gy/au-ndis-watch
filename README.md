@@ -82,7 +82,7 @@ npm run preview
 
 1. **`pipeline/collect.mjs`** queries data.gov.au's CKAN API for the most recently modified NDIS Commission Compliance Actions dataset and downloads its CSV.
 2. **`pipeline/aggregate.mjs`** parses the CSV with our own RFC 4180 parser, normalises action types into stable codes (`banning_order`, `revocation`, …) and severity buckets (red / amber / slate), classifies the messy "Registration Groups" field into seven service categories, and writes three JSON files to `public/data/`: the full `actions.json`, summary `stats.json`, and `meta.json`.
-3. **GitHub Actions** runs the pipeline every Monday at 18:23 UTC and commits any updates.
+3. **GitHub Actions** runs the pipeline monthly and commits any updates.
 4. The frontend (`src/main.ts`) loads the three JSON files at boot, parses the URL hash for state (active view, filters, drill-down entity), and renders one of seven views. All filtering and sorting happens client-side.
 
 ## Privacy & accuracy
