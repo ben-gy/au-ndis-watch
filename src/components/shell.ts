@@ -74,7 +74,7 @@ export function renderFooter(ctx: ShellContext, root: HTMLElement): void {
         <div class="muted">
           Data: <a href="${ctx.meta.csv_url}" target="_blank" rel="noopener">data.gov.au</a> · Last refresh ${
             updated ? new Date(updated).toISOString().slice(0, 10) : '—'
-          } · Built by <a href="https://benrichardson.dev/" target="_blank" rel="noopener">benrichardson.dev</a> · <a href="https://sites.benrichardson.dev" target="_blank" rel="noopener">more tools &amp; sites</a>
+          } · Built by <a href="https://benrichardson.dev/" target="_blank" rel="noopener">benrichardson.dev</a> · <a href="https://hub.benrichardson.dev" target="_blank" rel="noopener">more tools &amp; sites</a>
         </div>
       </div>
     </footer>
