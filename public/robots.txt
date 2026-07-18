@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://ndis-watch.benrichardson.dev/sitemap.xml
