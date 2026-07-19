@@ -19,6 +19,15 @@
 //   - class names prefixed `fbw-` so they cannot collide with product CSS
 //   - inherits product theming through CSS custom properties, with standalone
 //     light/dark fallbacks for products that define none
+//
+// Why a native <dialog> rather than a positioned <div>:
+// `showModal()` promotes the element to the **top layer**, which is the only
+// way to be certain a product cannot break the overlay. A `position:fixed`
+// overlay is positioned against the nearest ancestor with a transform, filter,
+// backdrop-filter or `will-change` — several products animate a wrapper, which
+// silently reparented the old overlay and left the scrim covering only part of
+// the screen. The top layer escapes ancestor transforms, overflow clipping and
+// z-index entirely, and `::backdrop` always paints the full viewport.
 
 const ENDPOINT = 'https://feedback.benrichardson.dev/submit';
 const STYLE_ID = 'fbw-style';
@@ -42,37 +51,121 @@ export interface FeedbackOptions {
   returnFocusTo?: HTMLElement | null;
 }
 
+const PLACEHOLDER = {
+  bug: 'The more specific, the easier it is to fix. What did you do, and what did you expect instead?',
+  idea: 'What would make this more useful to you?',
+} as const;
+
+// Layout notes that are easy to regress:
+//   - The dialog is pinned to the **visual** viewport (--fbw-vh / --fbw-top),
+//     not the layout viewport. On iOS the layout viewport does not shrink when
+//     the keyboard opens, so a `100dvh` panel puts Send underneath the keyboard.
+//   - The panel is a flex column: only `.fbw-body` scrolls, so the title and
+//     the Send button stay visible however long the message gets.
+//   - On phones it is a bottom sheet — reachable with a thumb, and it grows
+//     upward as the keyboard eats the bottom of the screen.
+//   - Every horizontal box is `min-width:0` / `box-sizing:border-box`; the old
+//     panel overflowed its own padding and clipped against the right edge.
 const CSS = `
 .fbw-slot{display:inline;white-space:nowrap}
 .fbw-trigger{background:none;border:0;padding:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:2px;opacity:.85}
 .fbw-trigger:hover{opacity:1}
-.fbw-overlay{position:fixed;inset:0;z-index:2147483000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.55);overscroll-behavior:contain}
-.fbw-panel{--fbw-bg:var(--surface,var(--bg,#fff));--fbw-fg:var(--text,var(--fg,#16181d));--fbw-line:var(--border,rgba(128,128,128,.34));--fbw-accent:var(--accent,var(--primary,#2f6feb));width:min(30rem,100%);max-height:min(90vh,40rem);overflow:auto;background:var(--fbw-bg);color:var(--fbw-fg);border:1px solid var(--fbw-line);border-radius:12px;box-shadow:0 18px 48px rgba(0,0,0,.32);padding:20px;font:inherit;font-size:15px;line-height:1.5;box-sizing:border-box}
-.fbw-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin:0 0 4px}
-.fbw-title{margin:0;font-size:1.05rem;font-weight:650}
-.fbw-close{background:none;border:0;font-size:22px;line-height:1;cursor:pointer;color:inherit;opacity:.6;padding:2px 6px;border-radius:6px}
-.fbw-close:hover{opacity:1}
-.fbw-sub{margin:0 0 14px;opacity:.72;font-size:.88rem}
-.fbw-kinds{display:flex;gap:8px;margin-bottom:12px}
-.fbw-kind{flex:1;padding:9px 10px;border:1px solid var(--fbw-line);border-radius:8px;background:none;color:inherit;font:inherit;font-size:.9rem;cursor:pointer}
-.fbw-kind[aria-pressed="true"]{border-color:var(--fbw-accent);box-shadow:inset 0 0 0 1px var(--fbw-accent);font-weight:600}
-.fbw-label{display:block;font-size:.85rem;opacity:.8;margin:0 0 5px}
-.fbw-field{width:100%;box-sizing:border-box;background:var(--fbw-bg);color:inherit;border:1px solid var(--fbw-line);border-radius:8px;padding:9px 10px;font:inherit;font-size:.92rem;margin-bottom:12px}
-.fbw-field:focus-visible{outline:2px solid var(--fbw-accent);outline-offset:1px}
-textarea.fbw-field{min-height:8.5rem;resize:vertical}
+.fbw-trigger:focus-visible{outline:2px solid var(--accent,var(--primary,#2f6feb));outline-offset:3px;border-radius:3px}
+
+.fbw-dialog{--fbw-bg:var(--surface,var(--bg,#fff));--fbw-fg:var(--text,var(--fg,#16181d));--fbw-line:var(--border,rgba(128,128,128,.3));--fbw-accent:var(--accent,var(--primary,#2f6feb));--fbw-radius:16px;position:fixed;left:0;right:0;top:var(--fbw-top,0px);width:100%;max-width:100%;height:var(--fbw-vh,100%);max-height:none;margin:0;padding:0;border:0;background:transparent;overflow:hidden;color:var(--fbw-fg);font:inherit;font-size:15px;line-height:1.5}
+.fbw-dialog[open]{display:flex;align-items:center;justify-content:center}
+.fbw-dialog::backdrop{background:rgba(8,10,14,.6)}
+
+.fbw-panel{display:flex;flex-direction:column;width:min(31rem,100%);max-height:100%;min-height:0;background:var(--fbw-bg);border:1px solid var(--fbw-line);border-radius:var(--fbw-radius);box-shadow:0 24px 60px -12px rgba(0,0,0,.4),0 4px 12px rgba(0,0,0,.12);box-sizing:border-box;overflow:hidden}
+.fbw-grab{display:none}
+
+.fbw-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:20px 20px 0;flex:0 0 auto}
+.fbw-titles{min-width:0}
+.fbw-title{margin:0;font-size:1.0625rem;font-weight:650;letter-spacing:-.01em}
+.fbw-sub{margin:3px 0 0;opacity:.7;font-size:.85rem}
+.fbw-close{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;margin:-6px -6px 0 0;background:none;border:0;border-radius:9px;color:inherit;opacity:.6;cursor:pointer}
+.fbw-close:hover{opacity:1;background:color-mix(in srgb,currentColor 9%,transparent)}
+.fbw-close svg{width:17px;height:17px;display:block}
+
+.fbw-body{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:16px 20px 4px}
+
+.fbw-kinds{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 16px;padding:0}
+.fbw-kind{min-height:44px;padding:10px 12px;border:1px solid var(--fbw-line);border-radius:10px;background:none;color:inherit;font:inherit;font-size:.9rem;cursor:pointer;transition:border-color .12s,box-shadow .12s,background-color .12s}
+.fbw-kind:hover{border-color:color-mix(in srgb,var(--fbw-accent) 45%,var(--fbw-line))}
+.fbw-kind[aria-pressed="true"]{border-color:var(--fbw-accent);box-shadow:inset 0 0 0 1px var(--fbw-accent);background:color-mix(in srgb,var(--fbw-accent) 8%,transparent);font-weight:600}
+
+.fbw-label{display:block;font-size:.85rem;opacity:.8;margin:0 0 6px}
+.fbw-opt{opacity:.6;font-weight:400}
+.fbw-field{display:block;width:100%;box-sizing:border-box;min-width:0;background:var(--fbw-bg);color:inherit;border:1px solid var(--fbw-line);border-radius:10px;padding:11px 12px;font:inherit;font-size:16px;margin:0 0 14px;transition:border-color .12s,box-shadow .12s}
+.fbw-field::placeholder{color:currentColor;opacity:.45}
+.fbw-field:focus{outline:0;border-color:var(--fbw-accent);box-shadow:0 0 0 3px color-mix(in srgb,var(--fbw-accent) 22%,transparent)}
+textarea.fbw-field{min-height:7.5rem;resize:vertical}
+.fbw-count{display:block;text-align:right;font-size:.72rem;opacity:.5;margin:-8px 0 12px;font-variant-numeric:tabular-nums}
 .fbw-hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
-.fbw-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:2px}
-.fbw-note{font-size:.78rem;opacity:.62;margin:0}
-.fbw-submit{padding:9px 18px;border:0;border-radius:8px;background:var(--fbw-accent);color:#fff;font:inherit;font-size:.92rem;font-weight:600;cursor:pointer}
-.fbw-submit[disabled]{opacity:.55;cursor:default}
-.fbw-msg{margin:12px 0 0;font-size:.88rem}
-.fbw-msg[data-tone="error"]{color:#c0392b}
-.fbw-done{text-align:center;padding:26px 8px}
-.fbw-done p{margin:0 0 6px}
-@media (prefers-color-scheme:dark){.fbw-panel{--fbw-bg:var(--surface,var(--bg,#1a1c22));--fbw-fg:var(--text,var(--fg,#e9ecf1))}}
-@media (max-width:480px){.fbw-panel{padding:16px}.fbw-kinds{flex-direction:column}}
-@media (prefers-reduced-motion:no-preference){.fbw-panel{animation:fbw-in .16s ease-out}@keyframes fbw-in{from{opacity:0;transform:translateY(6px)}}}
+
+.fbw-foot{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;gap:14px;padding:12px 20px calc(16px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--fbw-line);background:var(--fbw-bg)}
+.fbw-note{font-size:.76rem;opacity:.6;margin:0;min-width:0}
+.fbw-submit{flex:0 0 auto;min-height:44px;padding:11px 22px;border:0;border-radius:10px;background:var(--fbw-accent);color:#fff;font:inherit;font-size:.92rem;font-weight:600;cursor:pointer;transition:filter .12s}
+.fbw-submit:hover{filter:brightness(1.07)}
+.fbw-submit[disabled]{opacity:.55;cursor:default;filter:none}
+.fbw-close:focus-visible,.fbw-kind:focus-visible,.fbw-submit:focus-visible{outline:2px solid var(--fbw-accent);outline-offset:2px}
+
+.fbw-msg{margin:0 0 12px;font-size:.86rem}
+.fbw-msg:empty{display:none}
+.fbw-msg[data-tone="error"]{color:#d34a3a}
+.fbw-done{padding:34px 24px calc(34px + env(safe-area-inset-bottom,0px));text-align:center}
+.fbw-done-mark{width:46px;height:46px;margin:0 auto 14px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:color-mix(in srgb,var(--fbw-accent) 14%,transparent);color:var(--fbw-accent)}
+.fbw-done-mark svg{width:23px;height:23px}
+.fbw-done h2{margin:0 0 6px;font-size:1.2rem;font-weight:650}
+.fbw-done p{margin:0;opacity:.72;font-size:.9rem}
+.fbw-done .fbw-submit{margin-top:20px}
+
+@media (prefers-color-scheme:dark){
+.fbw-dialog{--fbw-bg:var(--surface,var(--bg,#1a1c22));--fbw-fg:var(--text,var(--fg,#e9ecf1));--fbw-line:var(--border,rgba(160,160,170,.26))}
+.fbw-dialog::backdrop{background:rgba(0,0,0,.68)}
+.fbw-msg[data-tone="error"]{color:#ff8a7a}
+}
+
+/* Phones: bottom sheet. Full-bleed, thumb-reachable, and it rides the top of
+   the keyboard because the dialog tracks the visual viewport. */
+@media (max-width:560px){
+.fbw-dialog[open]{align-items:flex-end}
+.fbw-panel{width:100%;max-height:100%;border-radius:var(--fbw-radius) var(--fbw-radius) 0 0;border-bottom:0;box-shadow:0 -8px 40px rgba(0,0,0,.34)}
+.fbw-grab{display:block;flex:0 0 auto;width:38px;height:4px;margin:8px auto 0;border-radius:99px;background:currentColor;opacity:.22}
+.fbw-head{padding-top:12px}
+.fbw-body{padding:14px 16px 4px}
+.fbw-foot{padding:12px 16px calc(14px + env(safe-area-inset-bottom,0px))}
+.fbw-kinds{gap:8px}
+.fbw-note{font-size:.72rem}
+}
+
+/* Very short viewports (landscape phone, or the keyboard taking most of the
+   screen): drop the sub-heading rather than let the sheet outgrow the space. */
+@media (max-height:420px){
+.fbw-sub{display:none}
+.fbw-head{padding-top:10px}
+textarea.fbw-field{min-height:4.5rem}
+.fbw-done{padding:20px}
+}
+
+@media (prefers-reduced-motion:no-preference){
+.fbw-panel{animation:fbw-pop .18s cubic-bezier(.2,.8,.3,1)}
+.fbw-dialog::backdrop{animation:fbw-fade .18s ease-out}
+@keyframes fbw-pop{from{opacity:0;transform:translateY(8px) scale(.985)}}
+@keyframes fbw-fade{from{opacity:0}}
+@media (max-width:560px){.fbw-panel{animation:fbw-sheet .24s cubic-bezier(.2,.8,.3,1)}@keyframes fbw-sheet{from{transform:translateY(100%)}}}
+}
+
+/* Fallback for browsers without dialog.showModal(): no top layer, so paint our
+   own scrim and pin above everything. */
+.fbw-dialog.fbw-fallback{z-index:2147483000;background:rgba(8,10,14,.6)}
+@media (prefers-color-scheme:dark){.fbw-dialog.fbw-fallback{background:rgba(0,0,0,.68)}}
 `;
+
+const ICON_CLOSE =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+const ICON_TICK =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
 
 function injectStyle(): void {
   if (document.getElementById(STYLE_ID)) return;
@@ -93,6 +186,14 @@ function context(build?: string): Record<string, string> {
   return ctx;
 }
 
+function escapeHtml(value: string): string {
+  return value.replace(
+    /[&<>"']/g,
+    (c) =>
+      ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c] as string,
+  );
+}
+
 let open = false;
 
 /** Open the feedback dialog directly — useful where there is no visible footer. */
@@ -105,74 +206,139 @@ export function openFeedback(options: FeedbackOptions = {}): void {
   const opened = Date.now();
   const lastFocused = options.returnFocusTo ?? (document.activeElement as HTMLElement | null);
 
-  const overlay = document.createElement('div');
-  overlay.className = 'fbw-overlay';
-  overlay.innerHTML = `
-    <div class="fbw-panel" role="dialog" aria-modal="true" aria-labelledby="fbw-title">
+  const dialog = document.createElement('dialog');
+  dialog.className = 'fbw-dialog';
+  const modal = typeof dialog.showModal === 'function';
+  if (!modal) dialog.classList.add('fbw-fallback');
+
+  dialog.innerHTML = `
+    <div class="fbw-panel" role="document">
+      <div class="fbw-grab" aria-hidden="true"></div>
       <div class="fbw-head">
-        <h2 class="fbw-title" id="fbw-title">Send feedback</h2>
-        <button type="button" class="fbw-close" aria-label="Close">&times;</button>
+        <div class="fbw-titles">
+          <h2 class="fbw-title" id="fbw-title">Send feedback</h2>
+          <p class="fbw-sub">Goes straight to the person who built this. No account needed.</p>
+        </div>
+        <button type="button" class="fbw-close" aria-label="Close">${ICON_CLOSE}</button>
       </div>
-      <p class="fbw-sub">Goes straight to the person who built this. No account needed.</p>
-      <div class="fbw-kinds" role="group" aria-label="Type of feedback">
-        <button type="button" class="fbw-kind" data-kind="bug" aria-pressed="true">Something's broken</button>
-        <button type="button" class="fbw-kind" data-kind="idea" aria-pressed="false">I have an idea</button>
+      <div class="fbw-body">
+        <div class="fbw-kinds" role="group" aria-label="Type of feedback">
+          <button type="button" class="fbw-kind" data-kind="bug" aria-pressed="true">Something's broken</button>
+          <button type="button" class="fbw-kind" data-kind="idea" aria-pressed="false">I have an idea</button>
+        </div>
+        <label class="fbw-label" for="fbw-message">What happened?</label>
+        <textarea class="fbw-field" id="fbw-message" maxlength="${MAX_MESSAGE}"
+          placeholder="${escapeHtml(PLACEHOLDER.bug)}"></textarea>
+        <span class="fbw-count" aria-hidden="true"></span>
+        <label class="fbw-label" for="fbw-email">Email <span class="fbw-opt">(optional — only if you want a reply)</span></label>
+        <input class="fbw-field" id="fbw-email" type="email" autocomplete="email" placeholder="you@example.com">
+        <input class="fbw-hp" tabindex="-1" aria-hidden="true" autocomplete="off" name="company">
+        <p class="fbw-msg" role="status" aria-live="polite"></p>
       </div>
-      <label class="fbw-label" for="fbw-message">What happened?</label>
-      <textarea class="fbw-field" id="fbw-message" maxlength="${MAX_MESSAGE}"
-        placeholder="The more specific, the easier it is to fix. What did you do, and what did you expect instead?"></textarea>
-      <label class="fbw-label" for="fbw-email">Email <span style="opacity:.6">(optional — only if you want a reply)</span></label>
-      <input class="fbw-field" id="fbw-email" type="email" autocomplete="email" placeholder="you@example.com">
-      <input class="fbw-hp" tabindex="-1" aria-hidden="true" autocomplete="off" name="company">
       <div class="fbw-foot">
         <p class="fbw-note">No cookies, no tracking.</p>
         <button type="button" class="fbw-submit">Send</button>
       </div>
-      <p class="fbw-msg" role="status" aria-live="polite"></p>
     </div>`;
 
-  const q = <T extends Element>(sel: string) => overlay.querySelector(sel) as T;
+  dialog.setAttribute('aria-labelledby', 'fbw-title');
+
+  const q = <T extends Element>(sel: string) => dialog.querySelector(sel) as T;
   const panel = q<HTMLElement>('.fbw-panel');
   const message = q<HTMLTextAreaElement>('#fbw-message');
   const email = q<HTMLInputElement>('#fbw-email');
   const honeypot = q<HTMLInputElement>('.fbw-hp');
   const submit = q<HTMLButtonElement>('.fbw-submit');
   const status = q<HTMLParagraphElement>('.fbw-msg');
-  const kinds = Array.from(overlay.querySelectorAll<HTMLButtonElement>('.fbw-kind'));
+  const count = q<HTMLElement>('.fbw-count');
+  const kinds = Array.from(dialog.querySelectorAll<HTMLButtonElement>('.fbw-kind'));
 
   let kind: 'bug' | 'idea' = 'bug';
   kinds.forEach((btn) =>
     btn.addEventListener('click', () => {
       kind = btn.dataset.kind === 'idea' ? 'idea' : 'bug';
       kinds.forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
-      message.setAttribute(
-        'placeholder',
-        kind === 'bug'
-          ? 'The more specific, the easier it is to fix. What did you do, and what did you expect instead?'
-          : 'What would make this more useful to you?',
-      );
+      message.setAttribute('placeholder', PLACEHOLDER[kind]);
+      message.focus();
     }),
   );
 
+  // Only worth showing as the limit gets close — a counter on an empty field is
+  // noise.
+  message.addEventListener('input', () => {
+    const left = MAX_MESSAGE - message.value.length;
+    count.textContent = left <= 300 ? `${left} characters left` : '';
+  });
+
+  // ── Viewport tracking ────────────────────────────────────────────
+  // The dialog is sized to the *visual* viewport so the sheet sits on top of
+  // the keyboard instead of behind it. Without this the Send button is
+  // unreachable on iOS, which is exactly what the bug reports showed.
+  const vv = window.visualViewport;
+  function syncViewport(): void {
+    if (!vv) return;
+    dialog.style.setProperty('--fbw-vh', `${vv.height}px`);
+    dialog.style.setProperty('--fbw-top', `${vv.offsetTop}px`);
+  }
+  syncViewport();
+  vv?.addEventListener('resize', syncViewport);
+  vv?.addEventListener('scroll', syncViewport);
+
+  // ── Background scroll lock ───────────────────────────────────────
+  // Keeps the page behind still while the sheet is up, and restores the exact
+  // scroll position on close (iOS loses it otherwise).
+  const scrollY = window.scrollY;
+  const body = document.body;
+  const prev = {
+    position: body.style.position,
+    top: body.style.top,
+    width: body.style.width,
+    overflow: body.style.overflow,
+  };
+  body.style.position = 'fixed';
+  body.style.top = `-${scrollY}px`;
+  body.style.width = '100%';
+  body.style.overflow = 'hidden';
+
+  let closed = false;
   function close(): void {
-    if (!open) return;
+    if (closed) return;
+    closed = true;
     open = false;
+
     document.removeEventListener('keydown', onKey, true);
-    overlay.remove();
-    lastFocused?.focus?.();
+    vv?.removeEventListener('resize', syncViewport);
+    vv?.removeEventListener('scroll', syncViewport);
+
+    body.style.position = prev.position;
+    body.style.top = prev.top;
+    body.style.width = prev.width;
+    body.style.overflow = prev.overflow;
+    window.scrollTo(0, scrollY);
+
+    if (modal && dialog.open) dialog.close();
+    dialog.remove();
+    // `preventScroll` so handing focus back cannot undo the scroll restore
+    // above — focusing an off-screen trigger otherwise jumps the page.
+    lastFocused?.focus?.({ preventScroll: true });
   }
 
-  // Focus trap: a product's own UI must not be tabbable behind the dialog.
+  // Escape is handled here rather than left to the UA. `showModal()` is supposed
+  // to fire `cancel` on Escape, but that is a user-agent "close request" and it
+  // does not fire reliably everywhere — automation-driven keys never trigger it,
+  // and embedded webviews vary. Closing on the keydown as well costs nothing:
+  // `close()` is guarded, so whichever path fires first wins and the other is a
+  // no-op. The Tab trap below is fallback-only — a real modal traps focus itself.
   function onKey(event: KeyboardEvent): void {
     if (event.key === 'Escape') {
       event.preventDefault();
       close();
       return;
     }
-    if (event.key !== 'Tab') return;
-    const focusable = panel.querySelectorAll<HTMLElement>(
-      'button, textarea, input:not([tabindex="-1"]), a[href]',
-    );
+    if (modal || event.key !== 'Tab') return;
+    const focusable = Array.from(
+      panel.querySelectorAll<HTMLElement>('button, textarea, input:not([tabindex="-1"]), a[href]'),
+    ).filter((el) => !el.hasAttribute('disabled'));
     if (!focusable.length) return;
     const first = focusable[0];
     const last = focusable[focusable.length - 1];
@@ -217,16 +383,18 @@ export function openFeedback(options: FeedbackOptions = {}): void {
 
       if (res.ok) {
         panel.innerHTML = `<div class="fbw-done">
-          <p style="font-size:1.6rem">Thank you</p>
-          <p style="opacity:.75">${
+          <div class="fbw-done-mark">${ICON_TICK}</div>
+          <h2>Thank you</h2>
+          <p>${
             kind === 'bug'
               ? 'This gets looked at within a day.'
               : 'Good ideas do get built — this one is now on the list.'
           }</p>
-          <p style="margin-top:16px"><button type="button" class="fbw-submit fbw-dismiss">Close</button></p>
+          <button type="button" class="fbw-submit fbw-dismiss">Close</button>
         </div>`;
-        panel.querySelector<HTMLButtonElement>('.fbw-dismiss')?.addEventListener('click', close);
-        panel.querySelector<HTMLButtonElement>('.fbw-dismiss')?.focus();
+        const dismiss = panel.querySelector<HTMLButtonElement>('.fbw-dismiss');
+        dismiss?.addEventListener('click', close);
+        dismiss?.focus();
         return;
       }
 
@@ -252,13 +420,37 @@ export function openFeedback(options: FeedbackOptions = {}): void {
     if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') send();
   });
   q<HTMLButtonElement>('.fbw-close').addEventListener('click', close);
-  overlay.addEventListener('mousedown', (event) => {
-    if (event.target === overlay) close();
+
+  // Click-outside: the dialog element itself is the full-viewport container, so
+  // an event landing on it (rather than on the panel) is on the scrim.
+  //
+  // Both ends of the click have to land on the scrim. Closing on `mousedown`
+  // alone loses a text selection that starts inside the message box and is
+  // dragged past the panel edge, and it also drops focus — the `click` that
+  // follows the teardown lands on <body> and steals it back from the trigger.
+  let pressedOnScrim = false;
+  dialog.addEventListener('mousedown', (event) => {
+    pressedOnScrim = event.target === dialog;
+  });
+  dialog.addEventListener('click', (event) => {
+    if (pressedOnScrim && event.target === dialog) close();
+    pressedOnScrim = false;
+  });
+  // Escape reaches the dialog as `cancel`; route it through our own teardown so
+  // the scroll lock is always released.
+  dialog.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    close();
   });
   document.addEventListener('keydown', onKey, true);
 
-  document.body.appendChild(overlay);
-  message.focus();
+  document.body.appendChild(dialog);
+  if (modal) dialog.showModal();
+  else dialog.setAttribute('open', '');
+
+  // Focusing the textarea directly would pop the keyboard over the sheet before
+  // it has finished animating in; the panel takes focus and the user taps in.
+  message.focus({ preventScroll: true });
 }
 
 const FOOTER_SELECTORS = ['.site-footer', 'footer'];
@@ -361,4 +553,4 @@ export function mountFeedback(options: FeedbackOptions = {}): void {
   });
 }
 
-export const _internal = { CSS, ENDPOINT, MIN_MESSAGE, context };
+export const _internal = { CSS, ENDPOINT, MIN_MESSAGE, MAX_MESSAGE, PLACEHOLDER, context };
