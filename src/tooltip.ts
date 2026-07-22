@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Ben Richardson — https://benrichardson.dev
+// Additional terms under AGPL-3.0 section 7(b) apply; see ADDITIONAL-TERMS.md.
 // Global hover tooltip driven by [data-tip] attributes anywhere in the document.
 // Ported from the au-flights implementation (canonical factory pattern).
 let tip: HTMLDivElement | null = null;

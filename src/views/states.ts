@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Ben Richardson — https://benrichardson.dev
+// Additional terms under AGPL-3.0 section 7(b) apply; see ADDITIONAL-TERMS.md.
 import type { AppState, ComplianceAction, Stats } from '../types';
 import { SEVERITY_COLORS, STATE_LABELS } from '../utils/colors';
 import { escapeHtml, fmtInt, fmtNum } from '../utils/format';

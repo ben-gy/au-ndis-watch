@@ -23,5 +23,6 @@
   },
   "dependencies": {
     "leaflet": "^1.9.4"
-  }
+  },
+  "license": "AGPL-3.0-or-later"
 }

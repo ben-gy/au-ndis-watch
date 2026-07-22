@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Ben Richardson — https://benrichardson.dev
+// Additional terms under AGPL-3.0 section 7(b) apply; see ADDITIONAL-TERMS.md.
 // Fetch the latest NDIS Commission Compliance Actions CSV from data.gov.au.
 // The Commission publishes a new dataset each week with a dated slug
 // (e.g. ndis-commission-compliance-actions-04-06-2026). We search CKAN for

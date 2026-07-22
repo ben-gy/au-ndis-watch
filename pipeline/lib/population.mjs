@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: AGPL-3.0-or-later
+// Copyright (C) 2026 Ben Richardson — https://benrichardson.dev
+// Additional terms under AGPL-3.0 section 7(b) apply; see ADDITIONAL-TERMS.md.
 // ABS Estimated Resident Population, June 2024 (rounded).
 // Source: https://www.abs.gov.au/statistics/people/population/national-state-and-territory-population/jun-2024
 // Used to compute per-100k enforcement rates by state.
